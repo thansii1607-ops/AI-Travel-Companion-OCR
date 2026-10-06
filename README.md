@@ -6,7 +6,7 @@ AI Travel Companion is an OCR-based travel document organizer that extracts impo
 
 ## Live Demo
 
-🔗 https://ai-travel-companion-ocr.streamlit.app/
+https://ai-travel-companion-ocr.streamlit.app/
 
 ## Features
 
