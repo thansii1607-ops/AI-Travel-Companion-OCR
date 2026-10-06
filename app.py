@@ -1,6 +1,5 @@
 import streamlit as st
 from PIL import Image
-import re
 
 from ocr import extract_text
 from document_detector import detect_document_type
@@ -209,44 +208,6 @@ section[data-testid="stSidebar"] {
 
 
 # =====================================================
-# SESSION STATE & EXPENSE HELPERS
-# =====================================================
-
-if "analyzed_documents" not in st.session_state:
-    st.session_state.analyzed_documents = {}
-
-
-def amount_to_number(value):
-    if value is None:
-        return 0.0
-
-    value = str(value).strip()
-
-    if not value or value.lower() in {
-        "not detected",
-        "none",
-        "n/a",
-        "na"
-    }:
-        return 0.0
-
-    cleaned = value.replace(",", "")
-    cleaned = re.sub(r"[^\d.]", "", cleaned)
-
-    if not cleaned:
-        return 0.0
-
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
-
-
-def format_amount(amount):
-    return f"₹ {amount:,.2f}"
-
-
-# =====================================================
 # SIDEBAR
 # =====================================================
 
@@ -293,6 +254,10 @@ with st.sidebar:
 
     🚪 Gate Detection
 
+    🏨 Hotel Details
+
+    🍽️ Restaurant Bills
+
     🗓️ Trip Timeline
 
     💰 Expense Tracking
@@ -306,7 +271,7 @@ with st.sidebar:
 
 
 # =====================================================
-# MAIN HEADER
+# HEADER
 # =====================================================
 
 st.markdown(
@@ -321,7 +286,7 @@ st.markdown(
 
 
 # =====================================================
-# HERO SECTION
+# HERO
 # =====================================================
 
 st.markdown("""
@@ -364,19 +329,12 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-if st.session_state.analyzed_documents:
-
-    if st.button(
-        "🗑️ Clear Analyzed Documents",
-        key="clear_analyzed_documents"
-    ):
-        st.session_state.analyzed_documents = {}
-        st.rerun()
-
 
 # =====================================================
-# DOCUMENT PROCESSING
+# PROCESS DOCUMENTS
 # =====================================================
+
+timeline_data = []
 
 if uploaded_files:
 
@@ -421,7 +379,7 @@ if uploaded_files:
 
                 text = extract_text(image)
 
-            if text.strip():
+            if text and text.strip():
 
                 st.success(
                     "✅ OCR successfully extracted text!"
@@ -432,6 +390,22 @@ if uploaded_files:
                 # =================================================
 
                 document_type = detect_document_type(text)
+
+                # Safety fallback for restaurant bills
+                lower_text = text.lower()
+
+                restaurant_score = sum([
+                    "restaurant" in lower_text,
+                    "subtotal" in lower_text,
+                    "cgst" in lower_text,
+                    "sgst" in lower_text,
+                    "grand total" in lower_text,
+                    "table no" in lower_text,
+                    "payment mode" in lower_text
+                ])
+
+                if restaurant_score >= 2:
+                    document_type = "Restaurant Bill"
 
                 st.markdown(
                     f"""
@@ -449,7 +423,7 @@ if uploaded_files:
                 )
 
                 # =================================================
-                # TRAVEL INFORMATION
+                # EXTRACT INFORMATION
                 # =================================================
 
                 travel_info = extract_travel_info(
@@ -458,625 +432,31 @@ if uploaded_files:
                 )
 
                 # =================================================
-                # SAVE ANALYZED DOCUMENT
-                # =================================================
-
-                st.session_state.analyzed_documents[file.name] = {
-                    "file": file.name,
-                    "document_type": document_type,
-                    "travel_info": travel_info,
-                    "ocr_text": text
-                }
-
-                # =================================================
-                # JOURNEY DETAILS
-                # =================================================
-
-                st.markdown(
-                    '<div class="section-title">🗺️ Journey Details</div>',
-                    unsafe_allow_html=True
-                )
-
-                from_place = travel_info.get(
-                    "From",
-                    "Not detected"
-                )
-
-                to_place = travel_info.get(
-                    "To",
-                    "Not detected"
-                )
-
-                st.markdown(
-                    f"""
-                    <div class="route-card">
-
-                    <div style="
-                    color:#668594;
-                    font-size:14px;
-                    margin-bottom:12px;
-                    ">
-                    🧭 TRAVEL ROUTE
-                    </div>
-
-                    <span class="route-place">
-                    📍 {from_place}
-                    </span>
-
-                    <span class="route-arrow">
-                    ✈️ ━━━━━ ✈️
-                    </span>
-
-                    <span class="route-place">
-                    📍 {to_place}
-                    </span>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-
-                # =================================================
-                # COMMON INFORMATION
-                # =================================================
-
-                st.markdown(
-                    '<div class="section-title">✈️ Travel Information</div>',
-                    unsafe_allow_html=True
-                )
-
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        👤 PASSENGER
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "Passenger Name",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                with col2:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        📅 TRAVEL DATE
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "Travel Date",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                with col3:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        🕐 TRAVEL TIME
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "Travel Time",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-
-                col4, col5, col6 = st.columns(3)
-
-                with col4:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        📍 FROM
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "From",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                with col5:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        📍 TO
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "To",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                with col6:
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                        <div class="info-label">
-                        🎫 PNR / BOOKING
-                        </div>
-
-                        <div class="info-value">
-                        {travel_info.get(
-                            "PNR / Booking Number",
-                            "Not detected"
-                        )}
-                        </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-
-                # =================================================
-                # FLIGHT
-                # =================================================
-
-                if document_type == "Flight Ticket":
-
-                    st.markdown(
-                        '<div class="section-title">✈️ Flight Details</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    col7, col8, col9 = st.columns(3)
-
-                    with col7:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            ✈️ FLIGHT NUMBER
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Flight Number",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with col8:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            💺 SEAT
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Seat",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with col9:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🚪 GATE
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Gate",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                    col10, col11 = st.columns(2)
-
-                    with col10:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🛫 BOARDING TIME
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Boarding Time",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with col11:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🧳 DOCUMENT
-                            </div>
-
-                            <div class="info-value">
-                            Flight Boarding Pass
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                # =================================================
-                # TRAIN
-                # =================================================
-
-                if document_type == "Train Ticket":
-
-                    st.markdown(
-                        '<div class="section-title">🚆 Train Details</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    train_col1, train_col2, train_col3 = st.columns(3)
-
-                    with train_col1:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🚆 TRAIN NUMBER
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Train Number",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with train_col2:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🚪 COACH
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Coach",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with train_col3:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🪑 BERTH
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Berth",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                # =================================================
-                # BUS
-                # =================================================
-
-                if document_type == "Bus Ticket":
-
-                    st.markdown(
-                        '<div class="section-title">🚌 Bus Details</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    bus_col1, bus_col2, bus_col3 = st.columns(3)
-
-                    with bus_col1:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🚌 BUS NUMBER
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Bus Number",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with bus_col2:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            📍 BOARDING POINT
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Boarding Point",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with bus_col3:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            📍 DROP POINT
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Drop Point",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                # =================================================
-                # HOTEL
-                # =================================================
-
-                if document_type == "Hotel Booking":
-
-                    st.markdown(
-                        '<div class="section-title">🏨 Hotel Details</div>',
-                        unsafe_allow_html=True
-                    )
-
-                    hotel_col1, hotel_col2, hotel_col3, hotel_col4 = st.columns(4)
-
-                    with hotel_col1:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🏨 HOTEL
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Hotel Name",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with hotel_col2:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🛎️ CHECK-IN
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Check-in",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                    with hotel_col3:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            🏁 CHECK-OUT
-                            </div>
-
-                            <div class="info-value">
-                            {travel_info.get(
-                                "Check-out",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                    with hotel_col4:
-
-                        st.markdown(
-                            f"""
-                            <div class="info-card">
-
-                            <div class="info-label">
-                            💰 HOTEL AMOUNT
-                            </div>
-
-                            <div class="info-value">
-                            ₹ {travel_info.get(
-                                "Hotel Amount",
-                                "Not detected"
-                            )}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                # =================================================
-                # RESTAURANT
+                # RESTAURANT BILL
                 # =================================================
 
                 if document_type == "Restaurant Bill":
 
                     st.markdown(
-                        '<div class="section-title">🍽️ Expense Details</div>',
+                        '<div class="section-title">🍽️ Restaurant Bill Details</div>',
                         unsafe_allow_html=True
                     )
 
-                    expense_col1, expense_col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
 
-                    with expense_col1:
+                    with col1:
 
                         st.markdown(
                             f"""
                             <div class="info-card">
 
                             <div class="info-label">
-                            💰 TOTAL AMOUNT
+                            📅 BILL DATE
                             </div>
 
                             <div class="info-value">
-                            ₹ {travel_info.get(
-                                "Total Amount",
+                            {travel_info.get(
+                                "Travel Date",
                                 "Not detected"
                             )}
                             </div>
@@ -1086,7 +466,75 @@ if uploaded_files:
                             unsafe_allow_html=True
                         )
 
-                    with expense_col2:
+                    with col2:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            🕐 TIME
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Travel Time",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col3:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            🧾 BILL NUMBER
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Bill Number",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    col4, col5, col6 = st.columns(3)
+
+                    with col4:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            💰 SUBTOTAL
+                            </div>
+
+                            <div class="info-value">
+                            ₹ {travel_info.get(
+                                "Subtotal",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col5:
 
                         st.markdown(
                             f"""
@@ -1108,6 +556,563 @@ if uploaded_files:
                             unsafe_allow_html=True
                         )
 
+                    with col6:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            💰 GRAND TOTAL
+                            </div>
+
+                            <div class="info-value">
+                            ₹ {travel_info.get(
+                                "Total Amount",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    col7, col8, col9 = st.columns(3)
+
+                    with col7:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            💳 PAYMENT MODE
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Payment Mode",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col8:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            ✅ PAYMENT STATUS
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Payment Status",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col9:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            📍 LOCATION
+                            </div>
+
+                            <div class="info-value">
+                            Bengaluru, Karnataka
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    timeline_data.append({
+                        "file": file.name,
+                        "document_type": "Restaurant Bill",
+                        "date": travel_info.get(
+                            "Travel Date",
+                            "Not detected"
+                        ),
+                        "time": travel_info.get(
+                            "Travel Time",
+                            "Not detected"
+                        ),
+                        "from": "Restaurant",
+                        "to": "Bengaluru"
+                    })
+
+                else:
+
+                    # =================================================
+                    # JOURNEY DETAILS
+                    # =================================================
+
+                    st.markdown(
+                        '<div class="section-title">🗺️ Journey Details</div>',
+                        unsafe_allow_html=True
+                    )
+
+                    from_place = travel_info.get(
+                        "From",
+                        "Not detected"
+                    )
+
+                    to_place = travel_info.get(
+                        "To",
+                        "Not detected"
+                    )
+
+                    st.markdown(
+                        f"""
+                        <div class="route-card">
+
+                        <div style="
+                        color:#668594;
+                        font-size:14px;
+                        margin-bottom:12px;
+                        ">
+                        🧭 TRAVEL ROUTE
+                        </div>
+
+                        <span class="route-place">
+                        📍 {from_place}
+                        </span>
+
+                        <span class="route-arrow">
+                        ✈️ ━━━━━ ✈️
+                        </span>
+
+                        <span class="route-place">
+                        📍 {to_place}
+                        </span>
+
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    # =================================================
+                    # COMMON TRAVEL INFORMATION
+                    # =================================================
+
+                    st.markdown(
+                        '<div class="section-title">✈️ Travel Information</div>',
+                        unsafe_allow_html=True
+                    )
+
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            👤 PASSENGER
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Passenger Name",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col2:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            📅 TRAVEL DATE
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Travel Date",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col3:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            🕐 TRAVEL TIME
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "Travel Time",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    col4, col5, col6 = st.columns(3)
+
+                    with col4:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            📍 FROM
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "From",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col5:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            📍 TO
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "To",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with col6:
+
+                        st.markdown(
+                            f"""
+                            <div class="info-card">
+
+                            <div class="info-label">
+                            🎫 PNR / BOOKING
+                            </div>
+
+                            <div class="info-value">
+                            {travel_info.get(
+                                "PNR / Booking Number",
+                                "Not detected"
+                            )}
+                            </div>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    # =================================================
+                    # FLIGHT
+                    # =================================================
+
+                    if document_type == "Flight Ticket":
+
+                        st.markdown(
+                            '<div class="section-title">✈️ Flight Details</div>',
+                            unsafe_allow_html=True
+                        )
+
+                        c1, c2, c3 = st.columns(3)
+
+                        with c1:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">✈️ FLIGHT NUMBER</div>
+                                <div class="info-value">
+                                {travel_info.get("Flight Number", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c2:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">💺 SEAT</div>
+                                <div class="info-value">
+                                {travel_info.get("Seat", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c3:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🚪 GATE</div>
+                                <div class="info-value">
+                                {travel_info.get("Gate", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                    # =================================================
+                    # TRAIN
+                    # =================================================
+
+                    elif document_type == "Train Ticket":
+
+                        st.markdown(
+                            '<div class="section-title">🚆 Train Details</div>',
+                            unsafe_allow_html=True
+                        )
+
+                        c1, c2, c3 = st.columns(3)
+
+                        with c1:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🚆 TRAIN NUMBER</div>
+                                <div class="info-value">
+                                {travel_info.get("Train Number", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c2:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🚪 COACH</div>
+                                <div class="info-value">
+                                {travel_info.get("Coach", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c3:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🪑 BERTH</div>
+                                <div class="info-value">
+                                {travel_info.get("Berth", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                    # =================================================
+                    # BUS
+                    # =================================================
+
+                    elif document_type == "Bus Ticket":
+
+                        st.markdown(
+                            '<div class="section-title">🚌 Bus Details</div>',
+                            unsafe_allow_html=True
+                        )
+
+                        c1, c2, c3 = st.columns(3)
+
+                        with c1:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🚌 BUS NUMBER</div>
+                                <div class="info-value">
+                                {travel_info.get("Bus Number", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c2:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">📍 BOARDING POINT</div>
+                                <div class="info-value">
+                                {travel_info.get("Boarding Point", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c3:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">📍 DROP POINT</div>
+                                <div class="info-value">
+                                {travel_info.get("Drop Point", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                    # =================================================
+                    # HOTEL
+                    # =================================================
+
+                    elif document_type == "Hotel Booking":
+
+                        st.markdown(
+                            '<div class="section-title">🏨 Hotel Details</div>',
+                            unsafe_allow_html=True
+                        )
+
+                        c1, c2, c3 = st.columns(3)
+
+                        with c1:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🏨 HOTEL</div>
+                                <div class="info-value">
+                                {travel_info.get("Hotel Name", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c2:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🛎️ CHECK-IN</div>
+                                <div class="info-value">
+                                {travel_info.get("Check-in", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c3:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🏁 CHECK-OUT</div>
+                                <div class="info-value">
+                                {travel_info.get("Check-out", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        c4, c5 = st.columns(2)
+
+                        with c4:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">🛏️ ROOM</div>
+                                <div class="info-value">
+                                {travel_info.get("Room", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                        with c5:
+                            st.markdown(
+                                f"""
+                                <div class="info-card">
+                                <div class="info-label">💰 HOTEL AMOUNT</div>
+                                <div class="info-value">
+                                ₹ {travel_info.get("Hotel Amount", "Not detected")}
+                                </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                    # =================================================
+                    # TIMELINE
+                    # =================================================
+
+                    timeline_data.append({
+                        "file": file.name,
+                        "document_type": document_type,
+                        "date": travel_info.get(
+                            "Travel Date",
+                            "Not detected"
+                        ),
+                        "time": travel_info.get(
+                            "Travel Time",
+                            "Not detected"
+                        ),
+                        "from": travel_info.get(
+                            "From",
+                            "Not detected"
+                        ),
+                        "to": travel_info.get(
+                            "To",
+                            "Not detected"
+                        )
+                    })
 
                 # =================================================
                 # OCR TEXT
@@ -1151,41 +1156,6 @@ if uploaded_files:
 
 
 # =====================================================
-# BUILD TIMELINE DATA FROM SESSION STATE
-# =====================================================
-
-timeline_data = []
-
-for item in st.session_state.analyzed_documents.values():
-
-    info = item.get("travel_info", {})
-
-    timeline_data.append({
-        "file": item.get("file", "Unknown"),
-        "document_type": item.get(
-            "document_type",
-            "Unknown Document"
-        ),
-        "date": info.get(
-            "Travel Date",
-            "Not detected"
-        ),
-        "time": info.get(
-            "Travel Time",
-            "Not detected"
-        ),
-        "from": info.get(
-            "From",
-            "Not detected"
-        ),
-        "to": info.get(
-            "To",
-            "Not detected"
-        )
-    })
-
-
-# =====================================================
 # TRIP TIMELINE
 # =====================================================
 
@@ -1222,208 +1192,6 @@ if timeline_data:
             📍 {item["from"]}
             &nbsp;&nbsp; → &nbsp;&nbsp;
             {item["to"]}
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# =====================================================
-# TRAVEL EXPENSE TRACKER
-# =====================================================
-
-hotel_total = 0.0
-restaurant_total = 0.0
-gst_total = 0.0
-
-expense_rows = []
-
-for item in st.session_state.analyzed_documents.values():
-
-    document_type = item.get(
-        "document_type",
-        "Unknown Document"
-    )
-
-    info = item.get(
-        "travel_info",
-        {}
-    )
-
-    file_name = item.get(
-        "file",
-        "Unknown"
-    )
-
-    if document_type == "Hotel Booking":
-
-        amount = amount_to_number(
-            info.get(
-                "Hotel Amount",
-                "Not detected"
-            )
-        )
-
-        if amount > 0:
-
-            hotel_total += amount
-
-            expense_rows.append({
-                "Document": file_name,
-                "Type": "Hotel",
-                "Amount": amount,
-                "GST": 0.0
-            })
-
-    elif document_type == "Restaurant Bill":
-
-        amount = amount_to_number(
-            info.get(
-                "Total Amount",
-                "Not detected"
-            )
-        )
-
-        gst = amount_to_number(
-            info.get(
-                "GST Amount",
-                "Not detected"
-            )
-        )
-
-        if amount > 0 or gst > 0:
-
-            restaurant_total += amount
-            gst_total += gst
-
-            expense_rows.append({
-                "Document": file_name,
-                "Type": "Restaurant",
-                "Amount": amount,
-                "GST": gst
-            })
-
-
-total_travel_expense = hotel_total + restaurant_total
-
-
-if expense_rows:
-
-    st.markdown(
-        '<div class="section-title">💰 Travel Expense Summary</div>',
-        unsafe_allow_html=True
-    )
-
-    st.write(
-        "AI automatically collects hotel and restaurant expenses "
-        "from your analyzed travel documents."
-    )
-
-    expense_col1, expense_col2, expense_col3, expense_col4 = st.columns(4)
-
-    with expense_col1:
-
-        st.markdown(
-            f"""
-            <div class="info-card">
-
-            <div class="info-label">
-            🏨 HOTEL EXPENSE
-            </div>
-
-            <div class="info-value">
-            {format_amount(hotel_total)}
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with expense_col2:
-
-        st.markdown(
-            f"""
-            <div class="info-card">
-
-            <div class="info-label">
-            🍽️ RESTAURANT EXPENSE
-            </div>
-
-            <div class="info-value">
-            {format_amount(restaurant_total)}
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with expense_col3:
-
-        st.markdown(
-            f"""
-            <div class="info-card">
-
-            <div class="info-label">
-            🧾 TOTAL GST
-            </div>
-
-            <div class="info-value">
-            {format_amount(gst_total)}
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with expense_col4:
-
-        st.markdown(
-            f"""
-            <div class="info-card">
-
-            <div class="info-label">
-            💳 TOTAL TRAVEL EXPENSE
-            </div>
-
-            <div class="info-value">
-            {format_amount(total_travel_expense)}
-            </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.markdown(
-        '<div class="section-title">📊 Expense Breakdown</div>',
-        unsafe_allow_html=True
-    )
-
-    for row in expense_rows:
-
-        st.markdown(
-            f"""
-            <div class="timeline-card">
-
-            <div class="timeline-title">
-            {row["Type"]} Expense
-            </div>
-
-            <div class="timeline-info">
-            📄 {row["Document"]}
-            </div>
-
-            <div class="timeline-info">
-            💰 Amount: {format_amount(row["Amount"])}
-            </div>
-
-            <div class="timeline-info">
-            🧾 GST: {format_amount(row["GST"])}
             </div>
 
             </div>
@@ -1512,8 +1280,8 @@ with col4:
     </div>
 
     <p class="feature-text">
-    English OCR is active with multilingual
-    OCR support planned for the next phase.
+    Support for English and multiple
+    Indian languages.
     </p>
 
     </div>
@@ -1548,8 +1316,8 @@ with col6:
     </div>
 
     <p class="feature-text">
-    Organize analyzed documents into a
-    digital trip timeline and summary view.
+    Organize analyzed documents into
+    a digital trip timeline and summary.
     </p>
 
     </div>
@@ -1579,14 +1347,3 @@ Built with Python • Tesseract OCR • Streamlit
 
 </div>
 """, unsafe_allow_html=True)
-
-
-
-               
-
-                       
-                      
-
-                        
-
-                           
