@@ -1,3 +1,4 @@
+
 import re
 
 
@@ -36,21 +37,22 @@ def clean_value(value):
 
 def extract_date(text):
 
-    # First priority:
-    # Date : 17 Jun 2026
     labeled_patterns = [
         r"\b(?:bill\s*)?date\s*[:\-]?\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})",
         r"\b(?:bill\s*)?date\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"
     ]
 
     for pattern in labeled_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         if match:
             return clean_value(match.group(1))
 
-    # Numeric dates
-    # Only same separator is accepted.
     patterns = [
         r"\b\d{1,2}-\d{1,2}-\d{2,4}\b",
         r"\b\d{1,2}/\d{1,2}/\d{2,4}\b",
@@ -58,7 +60,12 @@ def extract_date(text):
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         if match:
             return clean_value(match.group(0))
@@ -77,9 +84,15 @@ def extract_all_dates(text):
     dates = []
 
     for pattern in patterns:
-        matches = re.findall(pattern, text, re.IGNORECASE)
+
+        matches = re.findall(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         for date in matches:
+
             if date not in dates:
                 dates.append(date)
 
@@ -98,7 +111,11 @@ def extract_time(text):
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, text)
+
+        match = re.search(
+            pattern,
+            text
+        )
 
         if match:
             return match.group(0).replace(".", ":")
@@ -112,32 +129,126 @@ def extract_time(text):
 
 def extract_passenger_name(text):
 
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+    # -----------------------------------------------------
+    # Exact OCR format:
+    #
+    # Name
+    # JULIUS CAESAR MR
+    # -----------------------------------------------------
+
+    for i, line in enumerate(lines):
+
+        if re.fullmatch(
+            r"name",
+            line,
+            re.IGNORECASE
+        ):
+
+            if i + 1 < len(lines):
+
+                value = clean_value(
+                    lines[i + 1]
+                )
+
+                # Ignore common header words
+                if value.lower() not in [
+                    "ticket type",
+                    "fare base",
+                    "issued by",
+                    "from",
+                    "to",
+                    "date",
+                    "time",
+                    "seat",
+                    "ticket number",
+                    "number"
+                ]:
+
+                    # Ignore dates
+                    if not re.search(
+                        r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}",
+                        value
+                    ):
+
+                        # Must contain letters
+                        if re.search(
+                            r"[A-Za-z]{2,}",
+                            value
+                        ):
+
+                            # Remove extra fields if OCR
+                            # combines them into one line
+                            value = re.split(
+                                r"\b(?:oneway|adult|ticket|type|fare|issued|from|to|date|time|seat|number)\b",
+                                value,
+                                maxsplit=1,
+                                flags=re.IGNORECASE
+                            )[0]
+
+                            value = clean_value(value)
+
+                            if value != "Not detected":
+                                return value
+
+    # -----------------------------------------------------
+    # PASSENGER NAME : VALUE
+    # PASSENGER : VALUE
+    # NAME : VALUE
+    # -----------------------------------------------------
+
     patterns = [
-        r"(?:passenger\s*name|passenger)\s*[:\-]?\s*([A-Z][A-Za-z .'-]{2,50})",
-        r"\bname\s*[:\-]?\s*([A-Z][A-Za-z .'-]{2,50})"
+
+        r"\bPASSENGER\s*NAME\s*[:\-]\s*"
+        r"([A-Za-z][A-Za-z .'-]{2,60})",
+
+        r"\bPASSENGER\s*[:\-]\s*"
+        r"([A-Za-z][A-Za-z .'-]{2,60})",
+
+        r"\bNAME\s*[:\-]\s*"
+        r"([A-Za-z][A-Za-z .'-]{2,60})"
     ]
 
     for pattern in patterns:
 
-        match = re.search(pattern, text, re.IGNORECASE)
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         if match:
-            value = clean_value(match.group(1))
+
+            value = clean_value(
+                match.group(1)
+            )
 
             value = re.split(
-                r"\b(?:ticket\s*type|fare\s*base|issued\s*by|from|to|date|time|seat|ticket)\b",
+                r"\b(?:ticket\s*type|fare\s*base|issued\s*by|from|to|date|time|seat|ticket|number)\b",
                 value,
+                maxsplit=1,
                 flags=re.IGNORECASE
             )[0]
+
+            value = clean_value(value)
 
             if value.lower() not in [
                 "ticket type",
                 "fare base",
                 "issued by",
                 "customer name",
-                "dine in guest"
+                "dine in guest",
+                "number",
+                "numbe"
             ]:
-                return clean_value(value)
+
+                if value != "Not detected":
+                    return value
 
     return "Not detected"
 
@@ -158,7 +269,7 @@ def extract_route(text):
     ]
 
     # -----------------------------------------------------
-    # SPECIAL BUS/TICKET FORMAT
+    # FROM
     #
     # From Date Time Seat Ticket number
     # Rome, Italy 13-04-2016 12:30 3A 00017558273
@@ -166,9 +277,12 @@ def extract_route(text):
 
     for i, line in enumerate(lines):
 
-        if re.search(r"\bfrom\b", line, re.IGNORECASE):
+        if re.search(
+            r"\bfrom\b",
+            line,
+            re.IGNORECASE
+        ):
 
-            # Next line
             if i + 1 < len(lines):
 
                 next_line = lines[i + 1].strip()
@@ -185,6 +299,7 @@ def extract_route(text):
                     ].strip()
 
                     if possible_from:
+
                         from_place = clean_value(
                             possible_from
                         )
@@ -197,6 +312,7 @@ def extract_route(text):
             )
 
             if match:
+
                 from_place = clean_value(
                     match.group(1)
                 )
@@ -223,6 +339,7 @@ def extract_route(text):
                 )[0]
 
                 if possible_to:
+
                     to_place = clean_value(
                         possible_to
                     )
@@ -236,6 +353,7 @@ def extract_route(text):
             )
 
             if match:
+
                 to_place = clean_value(
                     match.group(1)
                 )
@@ -346,6 +464,7 @@ def extract_pnr(text):
                 "seat",
                 "ticket"
             ]:
+
                 return value
 
     return "Not detected"
@@ -386,6 +505,7 @@ def extract_ticket_number(text):
                 "seat",
                 "name"
             ]:
+
                 return value
 
     return "Not detected"
@@ -398,6 +518,7 @@ def extract_ticket_number(text):
 def extract_seat(text):
 
     patterns = [
+
         r"\bSEAT\s*(?:NO|NUMBER)?"
         r"\s*[:#.\-]?\s*([A-Z]?\d{1,3}[A-Z]?)",
 
@@ -413,6 +534,7 @@ def extract_seat(text):
         )
 
         if match:
+
             return clean_value(
                 match.group(1)
             )
@@ -438,6 +560,7 @@ def extract_gate(text):
     )
 
     if match:
+
         return clean_value(
             match.group(1)
         )
@@ -486,6 +609,7 @@ def extract_flight_number(text):
 def extract_boarding_time(text):
 
     patterns = [
+
         r"\bBOARDING\s*TIME\s*[:\-]?\s*"
         r"((?:[01]?\d|2[0-3]):[0-5]\d)",
 
@@ -514,6 +638,7 @@ def extract_boarding_time(text):
 def extract_train_number(text):
 
     patterns = [
+
         r"\bTRAIN\s*(?:NO|NUMBER)?"
         r"\s*[:#.\-]?\s*(\d{4,6})",
 
@@ -529,6 +654,7 @@ def extract_train_number(text):
         )
 
         if match:
+
             return clean_value(
                 match.group(1)
             )
@@ -543,7 +669,9 @@ def extract_train_number(text):
 def extract_coach(text):
 
     patterns = [
+
         r"\bCOACH\s*[:#.\-]?\s*([A-Z]{1,3}\d{0,3})",
+
         r"\b([A-Z]{1,2}\d{1,3})\b"
     ]
 
@@ -574,6 +702,7 @@ def extract_coach(text):
 def extract_berth(text):
 
     patterns = [
+
         r"\bBERTH\s*(?:NO|NUMBER)?"
         r"\s*[:#.\-]?\s*([A-Z]?\d{1,3})",
 
@@ -589,6 +718,7 @@ def extract_berth(text):
         )
 
         if match:
+
             return clean_value(
                 match.group(1)
             )
@@ -603,6 +733,7 @@ def extract_berth(text):
 def extract_bus_number(text):
 
     patterns = [
+
         r"\bBUS\s*(?:NO|NUMBER)?"
         r"\s*[:#.\-]?\s*([A-Z0-9/-]{2,20})",
 
@@ -630,6 +761,7 @@ def extract_bus_number(text):
                 "pass",
                 "number"
             ]:
+
                 return value
 
     return "Not detected"
@@ -642,6 +774,7 @@ def extract_bus_number(text):
 def extract_hotel_name(text):
 
     patterns = [
+
         r"\bHOTEL\s*(?:NAME)?"
         r"\s*[:\-]?\s*([A-Za-z0-9 &'.,-]{3,80})",
 
@@ -657,6 +790,7 @@ def extract_hotel_name(text):
         )
 
         if match:
+
             return clean_value(
                 match.group(1)
             )
@@ -682,6 +816,7 @@ def extract_check_in(text):
     )
 
     if match:
+
         return clean_value(
             match.group(1)
         )
@@ -707,6 +842,7 @@ def extract_check_out(text):
     )
 
     if match:
+
         return clean_value(
             match.group(1)
         )
@@ -724,12 +860,10 @@ def extract_bill_number(text):
 
         patterns = [
 
-            # Bill No. i SKB/25-05/0142
             r"\bBILL\s*(?:NO|NUMBER|#)"
             r"\s*[\.:]?\s*(?:[iIl]\s+)?"
             r"([A-Z][A-Z0-9/-]{3,30})",
 
-            # Bill : SKB/25-05/0142
             r"\bBILL\s*[:\-]?\s*"
             r"(?:NO|NUMBER|#)?"
             r"\s*[\.:]?\s*(?:[iIl]\s+)?"
@@ -850,12 +984,14 @@ def extract_gst(text):
     )
 
     if cgst_match:
+
         cgst = cgst_match.group(1).replace(
             ",",
             ""
         )
 
     if sgst_match:
+
         sgst = sgst_match.group(1).replace(
             ",",
             ""
@@ -892,7 +1028,9 @@ def extract_gst(text):
 def extract_payment_mode(text):
 
     patterns = [
+
         r"\bPAYMENT\s*MODE\s*[:\-]?\s*([A-Za-z ]+)",
+
         r"\bPAYMENT\s*METHOD\s*[:\-]?\s*([A-Za-z ]+)"
     ]
 
@@ -945,7 +1083,9 @@ def extract_payment_mode(text):
 def extract_payment_status(text):
 
     patterns = [
+
         r"\bPAYMENT\s*STATUS\s*[:\-]?\s*([A-Za-z]+)",
+
         r"\bSTATUS\s*[:\-]?\s*(PAID|UNPAID|PENDING|SUCCESS|FAILED)"
     ]
 
@@ -958,20 +1098,37 @@ def extract_payment_status(text):
         )
 
         if match:
+
             return clean_value(
                 match.group(1)
             ).upper()
 
-    if re.search(r"\bPAID\b", text, re.IGNORECASE):
+    if re.search(
+        r"\bPAID\b",
+        text,
+        re.IGNORECASE
+    ):
         return "PAID"
 
-    if re.search(r"\bPENDING\b", text, re.IGNORECASE):
+    if re.search(
+        r"\bPENDING\b",
+        text,
+        re.IGNORECASE
+    ):
         return "PENDING"
 
-    if re.search(r"\bFAILED\b", text, re.IGNORECASE):
+    if re.search(
+        r"\bFAILED\b",
+        text,
+        re.IGNORECASE
+    ):
         return "FAILED"
 
-    if re.search(r"\bSUCCESS\b", text, re.IGNORECASE):
+    if re.search(
+        r"\bSUCCESS\b",
+        text,
+        re.IGNORECASE
+    ):
         return "SUCCESS"
 
     return "Not detected"
@@ -1194,10 +1351,6 @@ def extract_travel_info(text, document_type):
 
     elif document_type == "Restaurant Bill":
 
-        # Important:
-        # Uses actual Date line.
-        # Does NOT use Bill Number as date.
-
         result["Travel Date"] = (
             extract_date(text)
         )
@@ -1260,3 +1413,4 @@ def extract_travel_info(text, document_type):
         )
 
     return result
+
