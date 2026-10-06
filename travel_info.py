@@ -1,77 +1,30 @@
-import re
+
+        import re
 
 
-# ---------------------------------------------------------
-# TEXT CLEANING
-# ---------------------------------------------------------
+# =========================================================
+# CLEAN OCR TEXT
+# =========================================================
 
 def clean_text(text):
-    """Clean OCR text without removing useful information."""
-
     if not text:
         return ""
 
     text = str(text)
-
-    # Replace common OCR separators
     text = text.replace("\n", " ")
     text = text.replace("\r", " ")
     text = text.replace("|", " ")
 
-    # Remove excessive spaces
     text = re.sub(r"\s+", " ", text)
 
     return text.strip()
 
 
-# ---------------------------------------------------------
-# GENERIC FIELD EXTRACTION
-# ---------------------------------------------------------
-
-def extract_field(text, patterns):
-    """Extract a field using multiple OCR-friendly patterns."""
-
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-
-        if match:
-            value = match.group(1).strip()
-
-            # Clean unwanted trailing characters
-            value = re.sub(r"\s{2,}", " ", value)
-            value = value.strip(" :-.,|")
-
-            if value:
-                return value
-
-    return "Not detected"
-
-
-# ---------------------------------------------------------
-# PASSENGER / CUSTOMER / GUEST
-# ---------------------------------------------------------
-
-def extract_passenger(text):
-    """Extract passenger, customer or guest name."""
-
-    patterns = [
-        r"\bpassenger\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,50}?)(?=\s+(?:pnr|booking|flight|train|bus|date|seat)\b|$)",
-        r"\bpassenger\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,50}?)(?=\s+(?:pnr|booking|flight|train|bus|date|seat)\b|$)",
-        r"\btravell?er\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,50}?)(?=\s+(?:pnr|booking|flight|train|bus|date|seat)\b|$)",
-        r"\bguest\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,50}?)(?=\s+(?:room|hotel|booking|date)\b|$)",
-        r"\bcustomer\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,50}?)(?=\s+(?:bill|amount|total|date)\b|$)"
-    ]
-
-    return extract_field(text, patterns)
-
-
-# ---------------------------------------------------------
+# =========================================================
 # DATE
-# ---------------------------------------------------------
+# =========================================================
 
 def extract_date(text):
-    """Extract travel / booking / bill date."""
-
     patterns = [
         r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
 
@@ -98,13 +51,11 @@ def extract_date(text):
     return "Not detected"
 
 
-# ---------------------------------------------------------
+# =========================================================
 # TIME
-# ---------------------------------------------------------
+# =========================================================
 
 def extract_time(text):
-    """Extract travel time."""
-
     patterns = [
         r"\b\d{1,2}:\d{2}\s*(?:AM|PM)\b",
         r"\b\d{1,2}:\d{2}\b"
@@ -119,21 +70,51 @@ def extract_time(text):
     return "Not detected"
 
 
-# ---------------------------------------------------------
+# =========================================================
+# PASSENGER
+# =========================================================
+
+def extract_passenger(text):
+    patterns = [
+        r"\bpassenger\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})",
+        r"\bpassenger\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})",
+        r"\btraveller\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})",
+        r"\btraveler\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})",
+        r"\bguest\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})",
+        r"\bcustomer\s*name\s*[:\-]?\s*([A-Za-z][A-Za-z .]{2,45})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            value = match.group(1).strip()
+
+            # Stop at common next fields
+            value = re.split(
+                r"\s+(?:PNR|booking|flight|train|bus|date|seat|time)\b",
+                value,
+                flags=re.IGNORECASE
+            )[0]
+
+            if len(value) >= 3:
+                return value.strip()
+
+    return "Not detected"
+
+
+# =========================================================
 # FROM / TO
-# ---------------------------------------------------------
+# =========================================================
 
 def extract_route(text):
-    """Extract departure and destination."""
+    from_place = "Not detected"
+    to_place = "Not detected"
 
-    # Example:
-    # From Chennai To Bangalore
     patterns = [
         r"\bfrom\s*[:\-]?\s*([A-Za-z][A-Za-z .]{1,40}?)\s+to\s*[:\-]?\s*([A-Za-z][A-Za-z .]{1,40}?)(?=\s+(?:date|time|flight|train|bus|pnr|seat|booking)\b|$)",
 
-        # Example:
-        # Chennai -> Bangalore
-        r"\b([A-Za-z][A-Za-z .]{1,35}?)\s*(?:->|→)\s*([A-Za-z][A-Za-z .]{1,35}?)(?=\s+(?:date|time|flight|train|bus|pnr|seat|booking)\b|$)"
+        r"\bfrom\s*[:\-]?\s*([A-Za-z][A-Za-z .]{1,40}?)\s*(?:→|->)\s*([A-Za-z][A-Za-z .]{1,40}?)(?=\s+(?:date|time|flight|train|bus|pnr|seat|booking)\b|$)"
     ]
 
     for pattern in patterns:
@@ -142,336 +123,612 @@ def extract_route(text):
         if match:
             from_place = match.group(1).strip(" :-.,")
             to_place = match.group(2).strip(" :-.,")
+            break
 
-            if from_place and to_place:
-                return {
-                    "from": from_place,
-                    "to": to_place
-                }
+    if from_place == "Not detected":
+        patterns_from = [
+            r"\bdeparture\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
+            r"\borigin\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})"
+        ]
 
-    # Individual FROM / TO fields
-    from_patterns = [
-        r"\bfrom\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
-        r"\bdeparture\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
-        r"\borigin\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})"
-    ]
+        for pattern in patterns_from:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                from_place = match.group(1).strip()
+                break
 
-    to_patterns = [
-        r"\bto\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
-        r"\bdestination\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
-        r"\barrival\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})"
-    ]
+    if to_place == "Not detected":
+        patterns_to = [
+            r"\bdestination\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})",
+            r"\barrival\s*[:\-]\s*([A-Za-z][A-Za-z .]{2,40})"
+        ]
 
-    from_place = extract_field(text, from_patterns)
-    to_place = extract_field(text, to_patterns)
+        for pattern in patterns_to:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                to_place = match.group(1).strip()
+                break
 
-    return {
-        "from": from_place,
-        "to": to_place
-    }
+    return from_place, to_place
 
 
-# ---------------------------------------------------------
-# PNR
-# ---------------------------------------------------------
+# =========================================================
+# PNR / BOOKING
+# =========================================================
 
 def extract_pnr(text):
-    """Extract PNR / booking reference."""
-
     patterns = [
-        r"\bpnr\s*(?:number|no|#)?\s*[:\-]?\s*([A-Z0-9]{5,15})",
-        r"\bbooking\s*(?:reference|ref|id)?\s*[:\-]?\s*([A-Z0-9]{5,15})",
-        r"\bconfirmation\s*(?:number|no)?\s*[:\-]?\s*([A-Z0-9]{5,15})"
-    ]
-
-    return extract_field(text, patterns)
-
-
-# ---------------------------------------------------------
-# SEAT
-# ---------------------------------------------------------
-
-def extract_seat(text):
-    """Extract seat number."""
-
-    patterns = [
-        r"\bseat\s*(?:number|no|#)?\s*[:\-]?\s*([A-Z0-9]{1,6})",
-        r"\bberth\s*(?:number|no|#)?\s*[:\-]?\s*([A-Z0-9]{1,6})"
-    ]
-
-    return extract_field(text, patterns)
-
-
-# ---------------------------------------------------------
-# FLIGHT NUMBER
-# ---------------------------------------------------------
-
-def extract_flight_number(text):
-    """Extract airline flight number."""
-
-    patterns = [
-        r"\bflight\s*(?:number|no)?\s*[:\-]?\s*([A-Z]{1,3}\s?\d{2,5})",
-        r"\b([A-Z]{2}\s?\d{2,5})\b"
-    ]
-
-    return extract_field(text, patterns)
-
-
-# ---------------------------------------------------------
-# TRAIN NUMBER
-# ---------------------------------------------------------
-
-def extract_train_number(text):
-    """Extract train number."""
-
-    patterns = [
-        r"\btrain\s*(?:number|no)?\s*[:\-]?\s*(\d{4,6})",
-        r"\btrain\s*[:\-]?\s*([A-Za-z0-9 -]{3,40})"
-    ]
-
-    return extract_field(text, patterns)
-
-
-# ---------------------------------------------------------
-# BUS DETAILS
-# ---------------------------------------------------------
-
-def extract_bus_details(text):
-    """Extract bus operator / bus number."""
-
-    operator_patterns = [
-        r"\bbus\s*(?:operator|name)\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,50})",
-        r"\boperator\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,50})"
-    ]
-
-    number_patterns = [
-        r"\bbus\s*(?:number|no|#)\s*[:\-]?\s*([A-Z0-9-]{3,15})"
-    ]
-
-    return {
-        "operator": extract_field(text, operator_patterns),
-        "number": extract_field(text, number_patterns)
-    }
-
-
-# ---------------------------------------------------------
-# HOTEL DETAILS
-# ---------------------------------------------------------
-
-def extract_hotel_details(text):
-    """Extract hotel and room information."""
-
-    hotel_patterns = [
-        r"\bhotel\s*(?:name)?\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})(?=\s+(?:room|check|date|guest|booking)\b|$)",
-        r"\bproperty\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})(?=\s+(?:room|check|date|guest|booking)\b|$)",
-        r"\bresort\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})(?=\s+(?:room|check|date|guest|booking)\b|$)"
-    ]
-
-    room_patterns = [
-        r"\broom\s*(?:type|number|no)?\s*[:\-]?\s*([A-Za-z0-9 .&'-]{1,40})",
-        r"\broom\s*[:\-]?\s*([A-Za-z0-9 .&'-]{1,40})"
-    ]
-
-    return {
-        "hotel_name": extract_field(text, hotel_patterns),
-        "room": extract_field(text, room_patterns)
-    }
-
-
-# ---------------------------------------------------------
-# AMOUNT
-# ---------------------------------------------------------
-
-def extract_amount(text):
-    """Extract total / fare / bill amount."""
-
-    patterns = [
-        r"\bgrand\s*total\s*[:\-]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
-        r"\btotal\s*amount\s*[:\-]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
-        r"\btotal\s*[:\-]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
-        r"\bamount\s*[:\-]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
-        r"\b(?:fare|price)\s*[:\-]?\s*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
-        r"(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)"
+        r"\bPNR\s*(?:NUMBER|NO|#)?\s*[:\-]?\s*([A-Z0-9]{5,15})",
+        r"\bBOOKING\s*(?:REFERENCE|REF|ID|NUMBER|NO)?\s*[:\-]?\s*([A-Z0-9]{5,20})",
+        r"\bCONFIRMATION\s*(?:NUMBER|NO)?\s*[:\-]?\s*([A-Z0-9]{5,20})"
     ]
 
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
 
         if match:
-            amount = match.group(1).replace(",", "")
-            return amount
+            return match.group(1).strip()
 
     return "Not detected"
 
 
-# ---------------------------------------------------------
-# DOCUMENT TYPE
-# ---------------------------------------------------------
+# =========================================================
+# SEAT
+# =========================================================
 
-def detect_document_type(text):
-    """Detect the type of travel document."""
+def extract_seat(text):
+    patterns = [
+        r"\bSEAT\s*(?:NUMBER|NO|#)?\s*[:\-]?\s*([A-Z0-9]{1,8})",
+        r"\bBERTH\s*(?:NUMBER|NO|#)?\s*[:\-]?\s*([A-Z0-9]{1,8})"
+    ]
 
-    text_lower = text.lower()
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
 
-    scores = {
-        "Flight Ticket": 0,
-        "Train Ticket": 0,
-        "Bus Ticket": 0,
-        "Hotel Booking": 0,
-        "Restaurant Bill": 0
-    }
+        if match:
+            return match.group(1).strip()
 
-    # Flight
+    return "Not detected"
+
+
+# =========================================================
+# GATE
+# =========================================================
+
+def extract_gate(text):
+    patterns = [
+        r"\bGATE\s*(?:NUMBER|NO|#)?\s*[:\-]?\s*([A-Z0-9-]{1,8})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# FLIGHT NUMBER
+# =========================================================
+
+def extract_flight_number(text):
+    patterns = [
+        r"\bFLIGHT\s*(?:NUMBER|NO)?\s*[:\-]?\s*([A-Z]{1,3}\s?\d{2,5})",
+        r"\b([A-Z]{2}\s?\d{2,5})\b"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# TRAIN NUMBER
+# =========================================================
+
+def extract_train_number(text):
+    patterns = [
+        r"\bTRAIN\s*(?:NUMBER|NO)?\s*[:\-]?\s*(\d{4,6})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# COACH
+# =========================================================
+
+def extract_coach(text):
+    patterns = [
+        r"\bCOACH\s*[:\-]?\s*([A-Z0-9]{1,8})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# BERTH
+# =========================================================
+
+def extract_berth(text):
+    patterns = [
+        r"\bBERTH\s*[:\-]?\s*([A-Z0-9]{1,8})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# BUS NUMBER
+# =========================================================
+
+def extract_bus_number(text):
+    patterns = [
+        r"\bBUS\s*(?:NUMBER|NO|#)\s*[:\-]?\s*([A-Z0-9-]{3,15})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# BOARDING POINT
+# =========================================================
+
+def extract_boarding_point(text):
+    patterns = [
+        r"\bBOARDING\s*POINT\s*[:\-]?\s*([A-Za-z0-9 .,&'-]{2,50})",
+        r"\bBOARDING\s*[:\-]?\s*([A-Za-z0-9 .,&'-]{2,50})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# DROP POINT
+# =========================================================
+
+def extract_drop_point(text):
+    patterns = [
+        r"\bDROPPING\s*POINT\s*[:\-]?\s*([A-Za-z0-9 .,&'-]{2,50})",
+        r"\bDROP\s*POINT\s*[:\-]?\s*([A-Za-z0-9 .,&'-]{2,50})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# HOTEL NAME
+# =========================================================
+
+def extract_hotel_name(text):
+    patterns = [
+        r"\bHOTEL\s*NAME\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})",
+        r"\bPROPERTY\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})",
+        r"\bRESORT\s*[:\-]?\s*([A-Za-z0-9 .&'-]{2,60})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            value = match.group(1).strip()
+
+            value = re.split(
+                r"\s+(?:room|guest|booking|check|date)\b",
+                value,
+                flags=re.IGNORECASE
+            )[0]
+
+            return value.strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# ROOM
+# =========================================================
+
+def extract_room(text):
+    patterns = [
+        r"\bROOM\s*(?:TYPE|NUMBER|NO)?\s*[:\-]?\s*([A-Za-z0-9 .&'-]{1,40})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# CHECK-IN
+# =========================================================
+
+def extract_checkin(text):
+    patterns = [
+        r"\bCHECK[\s-]*IN\s*[:\-]?\s*(.{3,30})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            value = match.group(1).strip()
+
+            date_match = re.search(
+                r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|"
+                r"\d{1,2}\s+[A-Za-z]+\s+\d{2,4}",
+                value
+            )
+
+            if date_match:
+                return date_match.group(0)
+
+    return "Not detected"
+
+
+# =========================================================
+# CHECK-OUT
+# =========================================================
+
+def extract_checkout(text):
+    patterns = [
+        r"\bCHECK[\s-]*OUT\s*[:\-]?\s*(.{3,30})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            value = match.group(1).strip()
+
+            date_match = re.search(
+                r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|"
+                r"\d{1,2}\s+[A-Za-z]+\s+\d{2,4}",
+                value
+            )
+
+            if date_match:
+                return date_match.group(0)
+
+    return "Not detected"
+
+
+# =========================================================
+# RESTAURANT BILL NUMBER
+# =========================================================
+
+def extract_bill_number(text):
+    patterns = [
+        r"\bBILL\s*(?:NO|NUMBER|#)?\s*[:.]?\s*([A-Z0-9/-]{4,30})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# SUBTOTAL
+# =========================================================
+
+def extract_subtotal(text):
+    patterns = [
+        r"\bSUBTOTAL\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).replace(",", "")
+
+    return "Not detected"
+
+
+# =========================================================
+# GST
+# =========================================================
+
+def extract_gst(text):
+    total = 0.0
+    found = False
+
+    patterns = [
+        r"\bCGST\s*(?:\([^)]+\))?\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"\bSGST\s*(?:\([^)]+\))?\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"\bGST\s*(?:AMOUNT)?\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)"
+    ]
+
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+
+        for value in matches:
+            try:
+                total += float(value.replace(",", ""))
+                found = True
+            except ValueError:
+                pass
+
+    if found:
+        return f"{total:.2f}"
+
+    return "Not detected"
+
+
+# =========================================================
+# GRAND TOTAL / HOTEL AMOUNT
+# =========================================================
+
+def extract_total_amount(text):
+    patterns = [
+        r"\bGRAND\s*TOTAL\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"\bTOTAL\s*AMOUNT\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"\bTOTAL\s*[:\-]?\s*(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).replace(",", "")
+
+    return "Not detected"
+
+
+# =========================================================
+# PAYMENT MODE
+# =========================================================
+
+def extract_payment_mode(text):
+    patterns = [
+        r"\bPAYMENT\s*MODE\s*[:\-]?\s*([A-Za-z ]{2,30})",
+        r"\bPAYMENT\s*METHOD\s*[:\-]?\s*([A-Za-z ]{2,30})"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            value = match.group(1).strip()
+
+            value = re.split(
+                r"\s+(?:THANK|VISIT|STATUS)\b",
+                value,
+                flags=re.IGNORECASE
+            )[0]
+
+            return value.strip()
+
+    return "Not detected"
+
+
+# =========================================================
+# PAYMENT STATUS
+# =========================================================
+
+def extract_payment_status(text):
+    patterns = [
+        r"\bPAYMENT\s*STATUS\s*[:\-]?\s*(PAID|UNPAID|PENDING|SUCCESS|FAILED)",
+        r"\b(PAID|UNPAID|PENDING|SUCCESS|FAILED)\b"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+
+        if match:
+            return match.group(1).upper()
+
+    return "Not detected"
+
+
+# =========================================================
+# DOCUMENT TYPE FALLBACK
+# =========================================================
+
+def detect_local_document_type(text):
+    lower = text.lower()
+
+    restaurant_words = [
+        "restaurant",
+        "subtotal",
+        "cgst",
+        "sgst",
+        "grand total",
+        "payment mode",
+        "table no",
+        "order type"
+    ]
+
+    hotel_words = [
+        "hotel",
+        "check-in",
+        "check in",
+        "check-out",
+        "check out",
+        "room",
+        "guest"
+    ]
+
     flight_words = [
         "flight",
         "airlines",
-        "airways",
         "boarding pass",
-        "departure",
-        "arrival",
         "gate",
-        "flight number"
+        "departure",
+        "arrival"
     ]
 
-    for word in flight_words:
-        if word in text_lower:
-            scores["Flight Ticket"] += 1
-
-    # Train
     train_words = [
         "train",
         "railway",
         "irctc",
         "coach",
         "berth",
-        "platform",
-        "train number"
+        "platform"
     ]
 
-    for word in train_words:
-        if word in text_lower:
-            scores["Train Ticket"] += 1
-
-    # Bus
     bus_words = [
         "bus ticket",
-        "bus number",
         "boarding point",
         "dropping point",
         "bus operator"
     ]
 
-    for word in bus_words:
-        if word in text_lower:
-            scores["Bus Ticket"] += 1
+    scores = {
+        "Restaurant Bill": sum(x in lower for x in restaurant_words),
+        "Hotel Booking": sum(x in lower for x in hotel_words),
+        "Flight Ticket": sum(x in lower for x in flight_words),
+        "Train Ticket": sum(x in lower for x in train_words),
+        "Bus Ticket": sum(x in lower for x in bus_words)
+    }
 
-    # Hotel
-    hotel_words = [
-        "hotel",
-        "room",
-        "check-in",
-        "check in",
-        "check-out",
-        "check out",
-        "guest",
-        "reservation"
-    ]
+    best = max(scores, key=scores.get)
 
-    for word in hotel_words:
-        if word in text_lower:
-            scores["Hotel Booking"] += 1
-
-    # Restaurant
-    restaurant_words = [
-        "restaurant",
-        "food",
-        "tax",
-        "gst",
-        "subtotal",
-        "bill",
-        "table",
-        "waiter"
-    ]
-
-    for word in restaurant_words:
-        if word in text_lower:
-            scores["Restaurant Bill"] += 1
-
-    detected_type = max(scores, key=scores.get)
-
-    if scores[detected_type] == 0:
+    if scores[best] == 0:
         return "Travel Document"
 
-    return detected_type
+    return best
 
 
-# ---------------------------------------------------------
+# =========================================================
 # MAIN FUNCTION
-# ---------------------------------------------------------
+# =========================================================
 
 def extract_travel_info(text, document_type=None):
-    """
-    Main travel information extraction function.
-
-    Compatible with:
-        extract_travel_info(text)
-    and:
-        extract_travel_info(text, document_type)
-    """
 
     text = clean_text(text)
 
     if not text:
         return {
-            "document_type": document_type or "Travel Document",
-            "passenger": "Not detected",
-            "travel_date": "Not detected",
-            "travel_time": "Not detected",
-            "from": "Not detected",
-            "to": "Not detected",
-            "pnr": "Not detected",
-            "seat": "Not detected",
-            "flight_number": "Not detected",
-            "train_number": "Not detected",
-            "bus_operator": "Not detected",
-            "bus_number": "Not detected",
-            "hotel_name": "Not detected",
-            "room": "Not detected",
-            "amount": "Not detected"
+            "Passenger Name": "Not detected",
+            "Travel Date": "Not detected",
+            "Travel Time": "Not detected",
+            "From": "Not detected",
+            "To": "Not detected",
+            "PNR / Booking Number": "Not detected",
+            "Flight Number": "Not detected",
+            "Seat": "Not detected",
+            "Gate": "Not detected",
+            "Boarding Time": "Not detected",
+            "Train Number": "Not detected",
+            "Coach": "Not detected",
+            "Berth": "Not detected",
+            "Bus Number": "Not detected",
+            "Boarding Point": "Not detected",
+            "Drop Point": "Not detected",
+            "Hotel Name": "Not detected",
+            "Room": "Not detected",
+            "Check-in": "Not detected",
+            "Check-out": "Not detected",
+            "Hotel Amount": "Not detected",
+            "Bill Number": "Not detected",
+            "Subtotal": "Not detected",
+            "GST Amount": "Not detected",
+            "Total Amount": "Not detected",
+            "Payment Mode": "Not detected",
+            "Payment Status": "Not detected"
         }
 
-    # Use document type from app.py if provided
-    if not document_type:
-        document_type = detect_document_type(text)
+    if not document_type or document_type == "Unknown":
+        document_type = detect_local_document_type(text)
 
-    route = extract_route(text)
-    hotel = extract_hotel_details(text)
-    bus = extract_bus_details(text)
+    from_place, to_place = extract_route(text)
 
-    return {
-        "document_type": document_type,
-        "passenger": extract_passenger(text),
-        "travel_date": extract_date(text),
-        "travel_time": extract_time(text),
+    result = {
+        "Passenger Name": extract_passenger(text),
+        "Travel Date": extract_date(text),
+        "Travel Time": extract_time(text),
 
-        "from": route["from"],
-        "to": route["to"],
+        "From": from_place,
+        "To": to_place,
 
-        "pnr": extract_pnr(text),
-        "seat": extract_seat(text),
+        "PNR / Booking Number": extract_pnr(text),
 
-        "flight_number": extract_flight_number(text),
-        "train_number": extract_train_number(text),
+        "Flight Number": extract_flight_number(text),
+        "Seat": extract_seat(text),
+        "Gate": extract_gate(text),
+        "Boarding Time": extract_time(text),
 
-        "bus_operator": bus["operator"],
-        "bus_number": bus["number"],
+        "Train Number": extract_train_number(text),
+        "Coach": extract_coach(text),
+        "Berth": extract_berth(text),
 
-        "hotel_name": hotel["hotel_name"],
-        "room": hotel["room"],
+        "Bus Number": extract_bus_number(text),
+        "Boarding Point": extract_boarding_point(text),
+        "Drop Point": extract_drop_point(text),
 
-        "amount": extract_amount(text)
+        "Hotel Name": extract_hotel_name(text),
+        "Room": extract_room(text),
+        "Check-in": extract_checkin(text),
+        "Check-out": extract_checkout(text),
+
+        "Hotel Amount": extract_total_amount(text),
+
+        "Bill Number": extract_bill_number(text),
+        "Subtotal": extract_subtotal(text),
+        "GST Amount": extract_gst(text),
+        "Total Amount": extract_total_amount(text),
+
+        "Payment Mode": extract_payment_mode(text),
+        "Payment Status": extract_payment_status(text)
     }
 
+    # Restaurant bill should not show travel route
+    if document_type == "Restaurant Bill":
+        result["From"] = "Not applicable"
+        result["To"] = "Not applicable"
+        result["Passenger Name"] = "Dine In Guest"
 
-    
- 
+    return result   
+
+            
+
