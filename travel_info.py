@@ -1,6 +1,5 @@
 import re
 
-
 def clean_text(text):
     if not text:
         return ""
@@ -266,7 +265,7 @@ def extract_route(text):
                             possible_from
                         )
 
-            # Same-line fallback
+        
             match = re.search(
                 r"\bfrom\b\s+(.+?)\s+\d{1,2}[-/]\d{1,2}[-/]\d{2,4}",
                 line,
@@ -684,10 +683,6 @@ def extract_bus_number(text):
     return "Not detected"
 
 
-# =========================================================
-# HOTEL NAME
-# =========================================================
-
 def extract_hotel_name(text):
 
     patterns = [
@@ -715,10 +710,6 @@ def extract_hotel_name(text):
     return "Not detected"
 
 
-# =========================================================
-# CHECK-IN
-# =========================================================
-
 def extract_check_in(text):
 
     pattern = (
@@ -739,11 +730,6 @@ def extract_check_in(text):
         )
 
     return "Not detected"
-
-
-# =========================================================
-# CHECK-OUT
-# =========================================================
 
 def extract_check_out(text):
 
@@ -766,10 +752,6 @@ def extract_check_out(text):
 
     return "Not detected"
 
-
-# =========================================================
-# RESTAURANT BILL NUMBER
-# =========================================================
 
 def extract_bill_number(text):
 
@@ -809,10 +791,6 @@ def extract_bill_number(text):
 
     return "Not detected"
 
-
-# =========================================================
-# MONEY
-# =========================================================
 
 def extract_amount(text, label):
 
@@ -877,10 +855,6 @@ def extract_grand_total(text):
     return "Not detected"
 
 
-# =========================================================
-# GST
-# =========================================================
-
 def extract_gst(text):
 
     cgst = None
@@ -938,10 +912,6 @@ def extract_gst(text):
     return "Not detected"
 
 
-# =========================================================
-# PAYMENT MODE
-# =========================================================
-
 def extract_payment_mode(text):
 
     patterns = [
@@ -992,10 +962,6 @@ def extract_payment_mode(text):
 
     return "Not detected"
 
-
-# =========================================================
-# PAYMENT STATUS
-# =========================================================
 
 def extract_payment_status(text):
 
@@ -1051,10 +1017,6 @@ def extract_payment_status(text):
     return "Not detected"
 
 
-# =========================================================
-# RESTAURANT LOCATION
-# =========================================================
-
 def extract_location(text):
 
     pattern = (
@@ -1080,10 +1042,6 @@ def extract_location(text):
     return "Not detected"
 
 
-# =========================================================
-# RESTAURANT NAME
-# =========================================================
-
 def extract_restaurant_name(text):
 
     lines = [
@@ -1099,10 +1057,6 @@ def extract_restaurant_name(text):
 
     return "Not detected"
 
-
-# =========================================================
-# MAIN EXTRACTION
-# =========================================================
 
 def extract_travel_info(text, document_type):
 
@@ -1121,28 +1075,27 @@ def extract_travel_info(text, document_type):
         "PNR / Booking Number":
             "Not detected",
 
-        # Flight
+       
         "Flight Number": "Not detected",
         "Seat": "Not detected",
         "Gate": "Not detected",
         "Boarding Time": "Not detected",
 
-        # Train
+        
         "Train Number": "Not detected",
         "Coach": "Not detected",
         "Berth": "Not detected",
 
-        # Bus
+        
         "Bus Number": "Not detected",
         "Boarding Point": "Not detected",
         "Drop Point": "Not detected",
 
-        # Hotel
+        
         "Hotel Name": "Not detected",
         "Check-in": "Not detected",
         "Check-out": "Not detected",
 
-        # Restaurant
         "Restaurant Name": "Not detected",
         "Bill Number": "Not detected",
         "Subtotal": "Not detected",
@@ -1153,9 +1106,7 @@ def extract_travel_info(text, document_type):
         "Location": "Not detected"
     }
 
-    # =====================================================
-    # COMMON
-    # =====================================================
+
 
     result["Travel Date"] = extract_date(text)
 
@@ -1174,9 +1125,7 @@ def extract_travel_info(text, document_type):
         extract_pnr(text)
     )
 
-    # =====================================================
-    # FLIGHT
-    # =====================================================
+
 
     if document_type == "Flight Ticket":
 
@@ -1192,9 +1141,6 @@ def extract_travel_info(text, document_type):
             extract_boarding_time(text)
         )
 
-    # =====================================================
-    # TRAIN
-    # =====================================================
 
     elif document_type == "Train Ticket":
 
@@ -1206,31 +1152,27 @@ def extract_travel_info(text, document_type):
 
         result["Berth"] = extract_berth(text)
 
-    # =====================================================
-    # BUS
-    # =====================================================
-
     elif document_type == "Bus Ticket":
 
         result["Bus Number"] = (
             extract_bus_number(text)
         )
 
-        # From = Boarding Point
+       
         if result["From"] != "Not detected":
 
             result["Boarding Point"] = (
                 result["From"]
             )
 
-        # To = Drop Point
+       
         if result["To"] != "Not detected":
 
             result["Drop Point"] = (
                 result["To"]
             )
 
-        # Ticket number as booking reference
+       
         ticket_number = (
             extract_ticket_number(text)
         )
@@ -1244,10 +1186,7 @@ def extract_travel_info(text, document_type):
                 ticket_number
             )
 
-    # =====================================================
-    # HOTEL
-    # =====================================================
-
+   
     elif document_type == "Hotel Booking":
 
         result["Hotel Name"] = (
@@ -1262,9 +1201,6 @@ def extract_travel_info(text, document_type):
             extract_check_out(text)
         )
 
-    # =====================================================
-    # RESTAURANT
-    # =====================================================
 
     elif document_type == "Restaurant Bill":
 
@@ -1308,7 +1244,7 @@ def extract_travel_info(text, document_type):
             extract_location(text)
         )
 
-        # Restaurant location as destination
+    
         if result["To"] == "Not detected":
 
             result["To"] = (
