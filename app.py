@@ -13,9 +13,6 @@ st.set_page_config(
 )
 
 
-# =====================================================
-# CUSTOM CSS
-# =====================================================
 
 st.markdown("""
 <style>
@@ -207,9 +204,6 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 
-# =====================================================
-# SIDEBAR
-# =====================================================
 
 with st.sidebar:
 
@@ -270,9 +264,7 @@ with st.sidebar:
     )
 
 
-# =====================================================
-# HEADER
-# =====================================================
+
 
 st.markdown(
     '<div class="main-title">🌍 AI Travel Companion</div>',
@@ -285,9 +277,7 @@ st.markdown(
 )
 
 
-# =====================================================
-# HERO
-# =====================================================
+
 
 st.markdown("""
 <div class="hero">
@@ -314,9 +304,7 @@ extract important information automatically.
 """, unsafe_allow_html=True)
 
 
-# =====================================================
-# UPLOAD
-# =====================================================
+
 
 st.markdown(
     '<div class="section-title">📂 Upload Your Travel Documents</div>',
@@ -330,9 +318,6 @@ uploaded_files = st.file_uploader(
 )
 
 
-# =====================================================
-# PROCESS DOCUMENTS
-# =====================================================
 
 timeline_data = []
 
@@ -385,13 +370,11 @@ if uploaded_files:
                     "✅ OCR successfully extracted text!"
                 )
 
-                # =================================================
-                # DOCUMENT TYPE
-                # =================================================
+               
 
                 document_type = detect_document_type(text)
 
-                # Safety fallback for restaurant bills
+                
                 lower_text = text.lower()
 
                 restaurant_score = sum([
@@ -422,18 +405,14 @@ if uploaded_files:
                     unsafe_allow_html=True
                 )
 
-                # =================================================
-                # EXTRACT INFORMATION
-                # =================================================
+               
 
                 travel_info = extract_travel_info(
                     text,
                     document_type
                 )
 
-                # =================================================
-                # RESTAURANT BILL
-                # =================================================
+                
 
                 if document_type == "Restaurant Bill":
 
