@@ -1,10 +1,5 @@
-
 import re
 
-
-# =========================================================
-# BASIC CLEANING
-# =========================================================
 
 def clean_text(text):
     if not text:
@@ -30,10 +25,6 @@ def clean_value(value):
 
     return value if value else "Not detected"
 
-
-# =========================================================
-# DATE
-# =========================================================
 
 def extract_date(text):
 
@@ -99,10 +90,6 @@ def extract_all_dates(text):
     return dates
 
 
-# =========================================================
-# TIME
-# =========================================================
-
 def extract_time(text):
 
     patterns = [
@@ -123,10 +110,6 @@ def extract_time(text):
     return "Not detected"
 
 
-# =========================================================
-# PASSENGER NAME
-# =========================================================
-
 def extract_passenger_name(text):
 
     lines = [
@@ -135,12 +118,6 @@ def extract_passenger_name(text):
         if line.strip()
     ]
 
-    # -----------------------------------------------------
-    # Exact OCR format:
-    #
-    # Name
-    # JULIUS CAESAR MR
-    # -----------------------------------------------------
 
     for i, line in enumerate(lines):
 
@@ -156,7 +133,7 @@ def extract_passenger_name(text):
                     lines[i + 1]
                 )
 
-                # Ignore common header words
+    
                 if value.lower() not in [
                     "ticket type",
                     "fare base",
@@ -170,20 +147,19 @@ def extract_passenger_name(text):
                     "number"
                 ]:
 
-                    # Ignore dates
+                   
                     if not re.search(
                         r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}",
                         value
                     ):
 
-                        # Must contain letters
+                      
                         if re.search(
                             r"[A-Za-z]{2,}",
                             value
                         ):
 
-                            # Remove extra fields if OCR
-                            # combines them into one line
+                           
                             value = re.split(
                                 r"\b(?:oneway|adult|ticket|type|fare|issued|from|to|date|time|seat|number)\b",
                                 value,
@@ -196,11 +172,7 @@ def extract_passenger_name(text):
                             if value != "Not detected":
                                 return value
 
-    # -----------------------------------------------------
-    # PASSENGER NAME : VALUE
-    # PASSENGER : VALUE
-    # NAME : VALUE
-    # -----------------------------------------------------
+  
 
     patterns = [
 
@@ -253,10 +225,6 @@ def extract_passenger_name(text):
     return "Not detected"
 
 
-# =========================================================
-# ROUTE
-# =========================================================
-
 def extract_route(text):
 
     from_place = "Not detected"
@@ -268,12 +236,6 @@ def extract_route(text):
         if line.strip()
     ]
 
-    # -----------------------------------------------------
-    # FROM
-    #
-    # From Date Time Seat Ticket number
-    # Rome, Italy 13-04-2016 12:30 3A 00017558273
-    # -----------------------------------------------------
 
     for i, line in enumerate(lines):
 
@@ -317,9 +279,7 @@ def extract_route(text):
                     match.group(1)
                 )
 
-    # -----------------------------------------------------
-    # TO
-    # -----------------------------------------------------
+  
 
     for i, line in enumerate(lines):
 
@@ -358,9 +318,7 @@ def extract_route(text):
                     match.group(1)
                 )
 
-    # -----------------------------------------------------
-    # GENERAL FALLBACK - FROM
-    # -----------------------------------------------------
+
 
     if from_place == "Not detected":
 
@@ -390,9 +348,7 @@ def extract_route(text):
             if value:
                 from_place = clean_value(value)
 
-    # -----------------------------------------------------
-    # GENERAL FALLBACK - TO
-    # -----------------------------------------------------
+  
 
     if to_place == "Not detected":
 
@@ -424,10 +380,6 @@ def extract_route(text):
 
     return from_place, to_place
 
-
-# =========================================================
-# PNR / BOOKING
-# =========================================================
 
 def extract_pnr(text):
 
@@ -470,10 +422,6 @@ def extract_pnr(text):
     return "Not detected"
 
 
-# =========================================================
-# TICKET NUMBER
-# =========================================================
-
 def extract_ticket_number(text):
 
     patterns = [
@@ -511,9 +459,6 @@ def extract_ticket_number(text):
     return "Not detected"
 
 
-# =========================================================
-# SEAT
-# =========================================================
 
 def extract_seat(text):
 
@@ -542,10 +487,6 @@ def extract_seat(text):
     return "Not detected"
 
 
-# =========================================================
-# GATE
-# =========================================================
-
 def extract_gate(text):
 
     pattern = (
@@ -567,10 +508,6 @@ def extract_gate(text):
 
     return "Not detected"
 
-
-# =========================================================
-# FLIGHT NUMBER
-# =========================================================
 
 def extract_flight_number(text):
 
@@ -602,10 +539,6 @@ def extract_flight_number(text):
     return "Not detected"
 
 
-# =========================================================
-# BOARDING TIME
-# =========================================================
-
 def extract_boarding_time(text):
 
     patterns = [
@@ -630,10 +563,6 @@ def extract_boarding_time(text):
 
     return "Not detected"
 
-
-# =========================================================
-# TRAIN NUMBER
-# =========================================================
 
 def extract_train_number(text):
 
@@ -661,10 +590,6 @@ def extract_train_number(text):
 
     return "Not detected"
 
-
-# =========================================================
-# COACH
-# =========================================================
 
 def extract_coach(text):
 
@@ -695,10 +620,6 @@ def extract_coach(text):
     return "Not detected"
 
 
-# =========================================================
-# BERTH
-# =========================================================
-
 def extract_berth(text):
 
     patterns = [
@@ -725,10 +646,6 @@ def extract_berth(text):
 
     return "Not detected"
 
-
-# =========================================================
-# BUS NUMBER
-# =========================================================
 
 def extract_bus_number(text):
 
@@ -1397,10 +1314,6 @@ def extract_travel_info(text, document_type):
             result["To"] = (
                 result["Location"]
             )
-
-    # =====================================================
-    # UNKNOWN
-    # =====================================================
 
     else:
 
