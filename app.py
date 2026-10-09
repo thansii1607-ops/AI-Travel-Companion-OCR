@@ -639,10 +639,6 @@ if uploaded_files:
 
                 else:
 
-                    # =================================================
-                    # JOURNEY DETAILS
-                    # =================================================
-
                     st.markdown(
                         '<div class="section-title">🗺️ Journey Details</div>',
                         unsafe_allow_html=True
@@ -687,9 +683,6 @@ if uploaded_files:
                         unsafe_allow_html=True
                     )
 
-                    # =================================================
-                    # COMMON TRAVEL INFORMATION
-                    # =================================================
 
                     st.markdown(
                         '<div class="section-title">✈️ Travel Information</div>',
@@ -832,10 +825,7 @@ if uploaded_files:
                             unsafe_allow_html=True
                         )
 
-                    # =================================================
-                    # FLIGHT
-                    # =================================================
-
+                
                     if document_type == "Flight Ticket":
 
                         st.markdown(
@@ -884,9 +874,7 @@ if uploaded_files:
                                 unsafe_allow_html=True
                             )
 
-                    # =================================================
-                    # TRAIN
-                    # =================================================
+                   
 
                     elif document_type == "Train Ticket":
 
@@ -936,9 +924,7 @@ if uploaded_files:
                                 unsafe_allow_html=True
                             )
 
-                    # =================================================
-                    # BUS
-                    # =================================================
+                
 
                     elif document_type == "Bus Ticket":
 
@@ -988,9 +974,7 @@ if uploaded_files:
                                 unsafe_allow_html=True
                             )
 
-                    # =================================================
-                    # HOTEL
-                    # =================================================
+                
 
                     elif document_type == "Hotel Booking":
 
@@ -1068,9 +1052,7 @@ if uploaded_files:
                                 unsafe_allow_html=True
                             )
 
-                    # =================================================
-                    # TIMELINE
-                    # =================================================
+                
 
                     timeline_data.append({
                         "file": file.name,
@@ -1093,9 +1075,7 @@ if uploaded_files:
                         )
                     })
 
-                # =================================================
-                # OCR TEXT
-                # =================================================
+            
 
                 st.markdown(
                     '<div class="section-title">📝 AI Extracted Text</div>',
@@ -1134,9 +1114,6 @@ if uploaded_files:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-# =====================================================
-# TRIP TIMELINE
-# =====================================================
 
 if timeline_data:
 
@@ -1179,9 +1156,6 @@ if timeline_data:
         )
 
 
-# =====================================================
-# SMART FEATURES
-# =====================================================
 
 st.markdown(
     '<div class="section-title">🚀 Smart Travel Features</div>',
@@ -1303,9 +1277,7 @@ with col6:
     """, unsafe_allow_html=True)
 
 
-# =====================================================
-# FOOTER
-# =====================================================
+
 
 st.markdown("""
 <div class="footer">
