@@ -8,9 +8,6 @@ def detect_document_type(text):
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
 
-    # ---------------------------------------------------------
-    # BUS TICKET
-    # ---------------------------------------------------------
     bus_keywords = [
         "international bus",
         "bus lines",
@@ -24,16 +21,14 @@ def detect_document_type(text):
 
     bus_score = sum(1 for keyword in bus_keywords if keyword in text)
 
-    # Strong bus indicators
+   
     if "international bus" in text or "bus lines" in text:
         bus_score += 5
 
     if "from" in text and "to" in text and "ticket number" in text:
         bus_score += 2
 
-    # ---------------------------------------------------------
-    # FLIGHT TICKET
-    # ---------------------------------------------------------
+
     flight_keywords = [
         "flight",
         "airline",
@@ -48,9 +43,7 @@ def detect_document_type(text):
 
     flight_score = sum(1 for keyword in flight_keywords if keyword in text)
 
-    # ---------------------------------------------------------
-    # TRAIN TICKET
-    # ---------------------------------------------------------
+
     train_keywords = [
         "railway",
         "railways",
@@ -65,9 +58,7 @@ def detect_document_type(text):
 
     train_score = sum(1 for keyword in train_keywords if keyword in text)
 
-    # ---------------------------------------------------------
-    # RESTAURANT BILL
-    # ---------------------------------------------------------
+
     restaurant_keywords = [
         "restaurant",
         "subtotal",
@@ -86,7 +77,6 @@ def detect_document_type(text):
         1 for keyword in restaurant_keywords if keyword in text
     )
 
-    # Strong restaurant indicators
     if "grand total" in text:
         restaurant_score += 3
 
@@ -96,9 +86,6 @@ def detect_document_type(text):
     if "cgst" in text and "sgst" in text:
         restaurant_score += 3
 
-    # ---------------------------------------------------------
-    # HOTEL BOOKING
-    # ---------------------------------------------------------
     hotel_keywords = [
         "hotel booking",
         "hotel",
@@ -114,17 +101,9 @@ def detect_document_type(text):
 
     hotel_score = sum(1 for keyword in hotel_keywords if keyword in text)
 
-    # ---------------------------------------------------------
-    # IMPORTANT PRIORITY
-    # ---------------------------------------------------------
-    # Restaurant first because restaurant bills can contain
-    # "bill", "total", "tax", etc.
     if restaurant_score >= 3:
         return "Restaurant Bill"
 
-    # Bus must be checked before Flight.
-    # This fixes documents containing "BOARDING PASS"
-    # and "SEAT" but actually being bus tickets.
     if bus_score >= 2:
         return "Bus Ticket"
 
@@ -137,9 +116,6 @@ def detect_document_type(text):
     if hotel_score >= 2:
         return "Hotel Booking"
 
-    # ---------------------------------------------------------
-    # SECONDARY FALLBACKS
-    # ---------------------------------------------------------
 
     if "bus" in text:
         return "Bus Ticket"
